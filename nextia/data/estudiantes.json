@@ -1,0 +1,6 @@
+[
+  {"id": 1, "nombre": "Lucía Pérez", "carrera": "Licenciatura en Tecnologías Digitales", "competencias": ["Python", "Git", "Excel"]},
+  {"id": 2, "nombre": "Martín Gómez", "carrera": "Ingeniería en Sistemas", "competencias": ["Python", "SQL", "Excel", "Power BI", "Git"]},
+  {"id": 3, "nombre": "Camila Rossi", "carrera": "Diseño Multimedial", "competencias": ["Figma", "Investigación de usuarios", "HTML"]},
+  {"id": 4, "nombre": "Joaquín Díaz", "carrera": "Licenciatura en Ciencias de la Computación", "competencias": ["Java", "SQL", "Git"]}
+]

@@ -1,0 +1,248 @@
+{
+  "name": "Nextia - Ingreso de perfiles",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nuevo-perfil",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        200
+      ],
+      "id": "053d58f6-cb6f-484a-961f-8a0322e0b12d",
+      "name": "Webhook",
+      "webhookId": "4dfd6b98-a48c-4825-9ccf-081faf789e6b"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a4af6039-0e16-4510-8f05-bcfcf43f5e23",
+              "leftValue": "={{ $json.body.nombre }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "805f6144-56c6-4d46-8fc3-e6f51acd50c1",
+              "leftValue": "={{ $json.body.carrera }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "c133ecfb-e284-4ec6-9997-def6ce02d855",
+              "leftValue": "={{ $json.body.competencias }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        200
+      ],
+      "id": "890757b6-9d9f-4fc9-817b-59e57ec6e822",
+      "name": "¿Datos completos?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/estudiantes",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ nombre: $json.body.nombre, carrera: $json.body.carrera, competencias: $json.body.competencias }) }}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        80
+      ],
+      "id": "526efb64-f31f-4641-9362-3c367d4a8aca",
+      "name": "Registrar perfil (API)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cc0af3fd-ac05-4f8c-a985-2ed5665c1a3a",
+              "leftValue": "={{ $json.id !== undefined }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        680,
+        80
+      ],
+      "id": "63607f65-304f-4294-9d82-ac36a215cb4c",
+      "name": "¿La API aceptó el perfil?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, mensaje: 'Perfil registrado en Nextia', perfil: $json }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        900,
+        -40
+      ],
+      "id": "b3683b2b-4d5c-48f2-a675-057f6a31a699",
+      "name": "Responder OK"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, mensaje: 'La API rechazó los datos', detalle: $json.detail }) }}",
+        "options": {
+          "responseCode": 422
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        900,
+        200
+      ],
+      "id": "443cdc02-00a3-4976-940c-651b91afd28d",
+      "name": "Responder rechazo de la API"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, mensaje: 'Faltan datos: se necesita nombre, carrera y competencias (lista)' }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        460,
+        340
+      ],
+      "id": "3a1a8387-6c94-498a-aa40-27b1e48b8508",
+      "name": "Responder datos incompletos"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "¿Datos completos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Datos completos?": {
+      "main": [
+        [
+          {
+            "node": "Registrar perfil (API)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder datos incompletos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar perfil (API)": {
+      "main": [
+        [
+          {
+            "node": "¿La API aceptó el perfil?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿La API aceptó el perfil?": {
+      "main": [
+        [
+          {
+            "node": "Responder OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder rechazo de la API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

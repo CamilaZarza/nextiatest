@@ -1,0 +1,298 @@
+{
+  "name": "Nextia - Recomendaciones con IA",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "recomendar",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        200
+      ],
+      "id": "7bb33ffb-b536-4035-8e52-68ad9e7cd9e3",
+      "name": "Webhook",
+      "webhookId": "c1296c7d-6168-42ee-b23f-5f3a3ddebe42"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "668a2015-4e49-47c5-a1db-36af581812e3",
+              "leftValue": "={{ $json.body.score }}",
+              "rightValue": 70,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        200
+      ],
+      "id": "d23e8236-62f5-4042-bf17-b6bc1a1868c1",
+      "name": "¿Score menor a 70?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Armamos el pedido para la IA con los datos calculados por las reglas de Python.\nconst MODELO = \"gemini-2.5-flash\"; // Cambiar acá si ese modelo no tiene cuota gratuita en tu AI Studio\nconst r = $input.first().json.body;\nconst faltantes = (r.competencias_faltantes || []).join(\", \") || \"ninguna\";\nconst obligatorias = (r.faltantes_obligatorias || []).join(\", \") || \"ninguna\";\n\nconst prompt = `Sos un orientador académico y laboral para estudiantes universitarios argentinos.\nDatos calculados por el sistema (no los cuestiones):\n- Estudiante: ${r.estudiante}\n- Oferta laboral: ${r.oferta}\n- Compatibilidad: ${r.score} sobre 100\n- Competencias que le faltan: ${faltantes}\n- Requisitos obligatorios que le faltan: ${obligatorias}\n\nEscribí entre 3 y 5 recomendaciones breves y concretas para mejorar el perfil (qué practicar o estudiar y por dónde empezar).\nReglas: respondé en español, en texto plano con viñetas simples (guiones), sin títulos.\nNo inventes cursos, instituciones, links ni certificaciones específicas. No prometas resultados laborales.`;\n\nreturn [{ json: { modelo: MODELO, prompt } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        80
+      ],
+      "id": "09879919-02f8-4955-83d3-bcc7202e6b4c",
+      "name": "Armar prompt"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $json.modelo }}:generateContent",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contents: [{ parts: [{ text: $json.prompt }] }], generationConfig: { temperature: 0.4, maxOutputTokens: 1024 } }) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        80
+      ],
+      "id": "86d04218-6d3f-430f-83f8-5e72af8dde15",
+      "name": "Consultar Gemini",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sacamos el texto de la respuesta de la IA. Si falló o vino vacía, texto queda vacío.\nconst respuesta = $input.first().json;\nconst texto = (respuesta?.candidates?.[0]?.content?.parts?.[0]?.text ?? \"\").trim();\nconst base = $('Webhook').first().json.body;\nconst modelo = $('Armar prompt').first().json.modelo;\nreturn [{ json: { texto, resultado_id: base.id, modelo } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        80
+      ],
+      "id": "662071e7-4b4c-463f-835b-1fc6f0d3f9ad",
+      "name": "Extraer texto"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7b0fbf7f-ed0a-4942-86ba-0356064c8764",
+              "leftValue": "={{ $json.texto.length }}",
+              "rightValue": 10,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        80
+      ],
+      "id": "f58fa3db-b1aa-4426-989c-11f64aee2a80",
+      "name": "¿Respuesta válida?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/recomendaciones",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ resultado_id: $json.resultado_id, texto: $json.texto, modelo: $json.modelo }) }}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        -40
+      ],
+      "id": "1afbed44-84d9-4c1d-81d8-8cd4b8244052",
+      "name": "Guardar recomendación (API)"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, mensaje: 'Recomendación generada por IA y pendiente de revisión humana', recomendacion: $json }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1560,
+        -40
+      ],
+      "id": "4384ec9f-298a-455e-8f41-34f37a741cf2",
+      "name": "Responder OK"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, mensaje: 'La IA no devolvió una respuesta válida. Revisá la API key, el modelo y la cuota de Gemini.' }) }}",
+        "options": {
+          "responseCode": 502
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1340,
+        200
+      ],
+      "id": "85457fc1-00fc-4c89-b160-fc5beb174b1f",
+      "name": "Responder error de IA"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, mensaje: 'El perfil ya es compatible (score ' + $json.body.score + '). No hace falta generar recomendaciones de IA.' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        460,
+        340
+      ],
+      "id": "33a8f2ab-9b5a-4663-823f-327abd052c3b",
+      "name": "Responder perfil compatible"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "¿Score menor a 70?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Score menor a 70?": {
+      "main": [
+        [
+          {
+            "node": "Armar prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder perfil compatible",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar prompt": {
+      "main": [
+        [
+          {
+            "node": "Consultar Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Gemini": {
+      "main": [
+        [
+          {
+            "node": "Extraer texto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer texto": {
+      "main": [
+        [
+          {
+            "node": "¿Respuesta válida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Respuesta válida?": {
+      "main": [
+        [
+          {
+            "node": "Guardar recomendación (API)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder error de IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar recomendación (API)": {
+      "main": [
+        [
+          {
+            "node": "Responder OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

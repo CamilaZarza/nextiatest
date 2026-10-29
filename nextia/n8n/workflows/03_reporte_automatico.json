@@ -1,0 +1,198 @@
+{
+  "name": "Nextia - Reporte automático",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        100
+      ],
+      "id": "9f497ed1-2ced-4ce7-b4f6-7a84ada48ed6",
+      "name": "Todos los días 9:00"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ],
+      "id": "66ab7429-b67b-4281-b815-80e395f50ac7",
+      "name": "Ejecutar a mano (demo)"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://host.docker.internal:8000/resultados",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        200
+      ],
+      "id": "df38df89-bf71-4ac4-b4c0-93ec24a474c5",
+      "name": "Pedir resultados (API)",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reglas simples del reporte: candidatos destacados = score de 80 o más.\nconst resultados = $input.all().map(i => i.json).filter(r => r.score !== undefined);\nconst destacados = resultados\n  .filter(r => r.score >= 80)\n  .map(r => ({ estudiante: r.estudiante, oferta: r.oferta, score: r.score }));\n\nconst resumen = destacados.length > 0\n  ? `Se analizaron ${resultados.length} compatibilidades. ${destacados.length} con score de 80 o más: ` +\n    destacados.map(d => `${d.estudiante} para \"${d.oferta}\" (${d.score})`).join(\"; \") + \".\"\n  : `Se analizaron ${resultados.length} compatibilidades y ninguna alcanzó 80 puntos.`;\n\nreturn [{ json: { total: resultados.length, destacados, hay_destacados: destacados.length > 0, resumen } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        200
+      ],
+      "id": "83c4cc8b-3f5c-4fb4-b55f-0eceac4fd374",
+      "name": "Armar resumen"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "02c78cc9-34a7-4efa-9a06-765b6294f655",
+              "leftValue": "={{ $json.hay_destacados }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        680,
+        200
+      ],
+      "id": "741bf05b-4710-4453-a664-96cb4b289807",
+      "name": "¿Hay candidatos destacados?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/reportes",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ titulo: 'Reporte de candidatos destacados', resumen: $json.resumen, total_resultados: $json.total, destacados: $json.destacados }) }}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        100
+      ],
+      "id": "b7953cd8-0c60-4412-a4cf-2e11171b90f1",
+      "name": "Guardar reporte (API)"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        900,
+        320
+      ],
+      "id": "3c47212e-dd47-4c75-8cea-ea7f19b7f793",
+      "name": "Sin novedades"
+    }
+  ],
+  "connections": {
+    "Todos los días 9:00": {
+      "main": [
+        [
+          {
+            "node": "Pedir resultados (API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ejecutar a mano (demo)": {
+      "main": [
+        [
+          {
+            "node": "Pedir resultados (API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir resultados (API)": {
+      "main": [
+        [
+          {
+            "node": "Armar resumen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar resumen": {
+      "main": [
+        [
+          {
+            "node": "¿Hay candidatos destacados?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Hay candidatos destacados?": {
+      "main": [
+        [
+          {
+            "node": "Guardar reporte (API)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sin novedades",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

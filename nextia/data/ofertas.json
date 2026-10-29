@@ -1,0 +1,5 @@
+[
+  {"id": 1, "titulo": "Analista de datos Jr", "empresa": "Datos SA", "requisitos_obligatorios": ["python", "sql", "excel"], "requisitos_deseables": ["power bi", "git"]},
+  {"id": 2, "titulo": "Desarrollador/a Backend Jr", "empresa": "Código Sur", "requisitos_obligatorios": ["python", "fastapi", "git"], "requisitos_deseables": ["docker", "sql"]},
+  {"id": 3, "titulo": "Diseñador/a UX Jr", "empresa": "Estudio Pixel", "requisitos_obligatorios": ["figma", "investigación de usuarios"], "requisitos_deseables": ["html", "css"]}
+]
